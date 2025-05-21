@@ -1,0 +1,48 @@
+ARG BASE_TAG="develop"
+ARG BASE_IMAGE="core-ubuntu-jammy"
+FROM kasmweb/${BASE_IMAGE}:${BASE_TAG}
+
+USER root
+
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+ENV INST_SCRIPTS $STARTUPDIR/install
+WORKDIR $HOME
+
+######### Darktable Installation ###########
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y darktable && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Optional: Add Darktable to the desktop
+RUN echo '[Desktop Entry]\n\
+Name=Darktable\n\
+Comment=Photography workflow software\n\
+Exec=darktable\n\
+Icon=darktable\n\
+Terminal=false\n\
+Type=Application\n\
+Categories=Graphics;' \
+> /usr/share/applications/darktable.desktop
+
+######### UI Customizations ###########
+
+RUN cp /usr/share/backgrounds/bg_kasm.png /usr/share/backgrounds/bg_default.png
+RUN apt-get remove -y xfce4-panel
+
+# GTK File Chooser Restrictions
+COPY ./src/ubuntu/install/gtk/ $INST_SCRIPTS/gtk/
+RUN bash $INST_SCRIPTS/gtk/install_restricted_file_chooser.sh
+
+######### Finalize Setup ###########
+
+RUN chown 1000:0 $HOME
+RUN $STARTUPDIR/set_user_permission.sh $HOME
+
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+RUN mkdir -p $HOME && chown -R 1000:0 $HOME
+
+USER 1000
